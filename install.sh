@@ -46,10 +46,11 @@ mkdir -p $INSTALLATION_PATH/NaturewatchCameraServer >/dev/null 2>&1
 cp -r $DIR $INSTALLATION_PATH >/dev/null 2>&1
 
 # Update and upgrade
+export DEBIAN_FRONTEND=noninteractive
 apt-get clean
 apt-get update
-apt-get upgrade -y
-apt-get dist-upgrade -y
+apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
+apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" dist-upgrade
 
 # Install extra packages (with specific versions) to avoid breaking the system:
 # apt list python3-picamera2 git python3-pip python3-libcamera libcap-dev ffmpeg python3-flask python3-numpy python3-opencv python3-kms++ --installed
