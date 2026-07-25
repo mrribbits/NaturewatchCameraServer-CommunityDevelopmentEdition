@@ -18,6 +18,17 @@ jobs:
           ref: devel
           path: CustomPiOS
 
+      - name: Make CustomPiOS apt upgrade non-interactive
+        run: |
+          # CustomPiOS's admin-toolkit module runs `apt-get upgrade -y` with no
+          # dpkg conffile options, so a modified /etc/initramfs-tools/initramfs.conf
+          # triggers an interactive prompt that fails the (non-interactive) build.
+          # Force dpkg to keep existing config files instead of prompting.
+          sed -i 's|apt-get upgrade -y|apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade -y|g' \
+            CustomPiOS/src/modules/admin-toolkit/start_chroot_script
+          echo "----- patched line -----"
+          grep -n "apt-get .*upgrade" CustomPiOS/src/modules/admin-toolkit/start_chroot_script
+
       - name: Checkout Project Repository
         uses: actions/checkout@v2
         with:
