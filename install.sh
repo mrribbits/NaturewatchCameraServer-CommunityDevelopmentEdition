@@ -57,11 +57,14 @@ Dpkg::Options {
 APT::Get::Assume-Yes "true";
 APTEOF
  
-# Update and upgrade
+# Update package lists only.
+# NOTE: full 'apt-get upgrade' / 'dist-upgrade' is intentionally NOT run here.
+# On the (now older) pinned base image it pulls a large kernel upgrade and then
+# hangs forever regenerating the arm64 (v8) initramfs under 32-bit armhf QEMU
+# emulation. The base image's own kernel runs the camera fine; every package we
+# actually need is installed explicitly below.
 apt-get clean
 apt-get update
-apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade -y
-apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" dist-upgrade -y
  
 # Install extra packages (with specific versions) to avoid breaking the system:
 # apt list python3-picamera2 git python3-pip python3-libcamera libcap-dev ffmpeg python3-flask python3-numpy python3-opencv python3-kms++ --installed
@@ -105,5 +108,4 @@ systemctl start wifisetup.service
 # Add Watchdog script to crontab
 (crontab -l 2>/dev/null; echo "# Start watchdog script at boot time") | crontab -
 (crontab -l 2>/dev/null; echo "@reboot ${TEMPLATES}/watchdog.sh > /dev/null 2>&1") | crontab -
- 
  
