@@ -1,7 +1,7 @@
 ---
 name: Build Image
 on: [push, pull_request, workflow_dispatch]
- 
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -10,42 +10,42 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install coreutils p7zip-full qemu-user-static python3-git
- 
+
       - name: Checkout CustomPiOS
         uses: actions/checkout@v2
         with:
           repository: "guysoft/CustomPiOS"
           ref: devel
           path: CustomPiOS
- 
+
       - name: Checkout Project Repository
         uses: actions/checkout@v2
         with:
           repository: ${{ github.repository }}
           path: repository
- 
+
       - name: Setup node
         uses: actions/setup-node@v3
         with:
           node-version: 12
- 
+
       - name: Build React frontend
         run: |
           pushd repository/naturewatch_camera_server/static/client
           npm i -y
           npm run build
           popd
- 
+
       - name: Download Raspbian Image
         run: |
           cd repository/os/image
           wget -q -c --trust-server-names 'https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2024-11-19/2024-11-19-raspios-bookworm-armhf-lite.img.xz'
- 
+
       - name: Update CustomPiOS Paths
         run: |
           cd repository/os
           ../../CustomPiOS/src/update-custompios-paths
- 
+
       - name: Copy NaturewatchCameraServer to CustomPiOS directory
         run: |
           cp -r repository /tmp/NaturewatchCameraServer
@@ -56,7 +56,7 @@ jobs:
           cp -r /tmp/NaturewatchCameraServer repository/os/modules/naturewatchcamera/filesystem/home/pi
           rm -rf /tmp/NaturewatchCameraServer
           ls repository/os/modules/naturewatchcamera/filesystem/home/pi/NaturewatchCameraServer
- 
+
       - name: Build Image
         run: |
           export BASE_IMAGE_ENLARGEROOT=2000
@@ -65,17 +65,17 @@ jobs:
           # export AUTO_HOTSPOT_PASSWORD=badgersandfoxes
           sudo modprobe loop && cd repository/os
           sudo bash -x ./build_dist
- 
+
       - name: Copy Output
         run: cp ${{ github.workspace }}/repository/os/workspace/*lite.img mynaturewatch-camera.img
- 
+
       - name: Zip Output
         run: gzip mynaturewatch-camera.img
       - uses: actions/upload-artifact@v4
         with:
           name: mynaturewatch-camera.img.gz
           path: mynaturewatch-camera.img.gz
- 
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -87,7 +87,7 @@ jobs:
           release_name: My Naturewatch Camera ${{ github.ref }}
           draft: true
           prerelease: false
- 
+
       - name: Upload Release
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
@@ -99,4 +99,3 @@ jobs:
           asset_path: mynaturewatch-camera.img.gz
           asset_name: mynaturewatch-camera.img.gz
           asset_content_type: application/octet-stream
- 
