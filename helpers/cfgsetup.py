@@ -1,36 +1,104 @@
 # -*- coding: utf-8 -*-
-"""Automatically generate a unique SSID for the MyNaturewatch WiFi hotspot,
-based on the Pi's serial number."""
+"""Bring up the MyNaturewatch WiFi hotspot.
+
+Hardened for USB WiFi dongles:
+  * waits for a wireless interface to actually appear (USB dongles enumerate
+    slower than onboard WiFi, so the original fire-once approach could miss it);
+  * auto-detects the interface name (a USB dongle is often NOT called wlan0);
+  * writes a diagnostic log to /boot/firmware/wifi-setup.log, which is readable
+    from a Mac/PC by popping the SD card in, for headless debugging.
+"""
+import glob
 import os
 import subprocess
 import time
 
-# Get SSID and passphrase from hostapd.conf
-#HOST_CONFIG_FILE_PATH = "/etc/hostapd/hostapd.conf"
+LOG = "/boot/firmware/wifi-setup.log"
 
-#with open(HOST_CONFIG_FILE_PATH, "r", encoding="utf-8") as config_file:
-#    host_config_file = config_file.readlines()
 
-#current_ssid = host_config_file[2][5:].strip()
-#print(f"hostapd configuration - SSID: {current_ssid}")
+def log(msg):
+    try:
+        with open(LOG, "a", encoding="utf-8") as f:
+            f.write(str(msg) + "\n")
+    except Exception:
+        pass
+    print(msg)
+
+
+def run(cmd):
+    """Run a shell command, log it and its output, return exit code."""
+    log("$ " + cmd)
+    try:
+        out = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=60
+        )
+        if out.stdout.strip():
+            log(out.stdout.rstrip())
+        if out.stderr.strip():
+            log("[stderr] " + out.stderr.rstrip())
+        return out.returncode
+    except Exception as e:
+        log("[error] " + str(e))
+        return 1
+
+
+def find_wifi_iface(timeout=90):
+    """Return the first wireless interface name, waiting up to timeout seconds."""
+    for i in range(timeout):
+        for marker in ("/sys/class/net/*/wireless", "/sys/class/net/*/phy80211"):
+            hits = glob.glob(marker)
+            if hits:
+                return hits[0].split("/")[-2]
+        if i in (0, 10, 30, 60):
+            log("Waiting for a wireless interface to appear... (%ds)" % i)
+        time.sleep(1)
+    return None
+
+
+log("\n==================== wifisetup run ====================")
+run("uptime")
+run("lsusb")
+run("dmesg | grep -iE 'rt2|ralink|rt5370|firmware|usb ' | tail -40")
+
+iface = find_wifi_iface(90)
+log("Detected wireless interface: %r" % iface)
+
+if not iface:
+    log("NO WIRELESS INTERFACE FOUND. The dongle is not being recognized "
+        "(missing driver/firmware, or not enumerating). See lsusb/dmesg above.")
+    raise SystemExit(1)
+
+# Report the interface's capabilities (does it support AP mode?)
+run("iw dev")
+run("iw list | grep -A10 'Supported interface modes'")
 
 # Generate a unique SSID based on the Pi's serial number
-unique_id = subprocess.check_output(
-    r"sed -n 's/^Serial\s*: 0*//p' /proc/cpuinfo", shell=True
+try:
+    unique_id = subprocess.check_output(
+        r"sed -n 's/^Serial\s*: 0*//p' /proc/cpuinfo", shell=True
+    )
+    suffix = unique_id.strip().decode("utf-8")[-8:]
+except Exception:
+    suffix = "00000000"
+unique_ssid = "MyNaturewatch-" + suffix
+log("SSID: " + unique_ssid)
+
+# Build the hotspot on the detected interface
+run("iw reg set GB")
+run("nmcli r wifi on")
+run("nmcli con delete id Hotspot")
+run("nmcli con delete id hotspot")
+rc = run(
+    "nmcli device wifi hotspot ssid %s password badgersandfoxes ifname %s"
+    % (unique_ssid, iface)
 )
-unique_ssid = f"MyNaturewatch-{unique_id.strip().decode('utf-8')[-8:]}"
+log("=> nmcli hotspot create exit code: %d" % rc)
+run("nmcli connection modify Hotspot connection.autoconnect yes")
+run("systemctl restart NetworkManager")
+time.sleep(5)
+run("nmcli con up Hotspot")
 
-#if unique_ssid == current_ssid:
-#    print("Unique SSID already set, no further action is needed.")
-#else:
-print("Updating hotspot")
-
-os.system("sudo iw reg set GB")
-os.system("sudo nmcli r wifi on") 
-os.system("sudo nmcli con delete id Hotspot")
-os.system("sudo nmcli con add type wifi con-name hotspot")
-os.system("sudo nmcli device wifi hotspot ssid " + unique_ssid + " password badgersandfoxes ifname wlan0")
-os.system("sudo nmcli connection modify Hotspot connection.autoconnect yes")
-os.system("sudo systemctl restart NetworkManager")
-time.sleep(5) 
-os.system("sudo nmcli con up Hotspot")
+# Final state, for the log
+run("nmcli -t device")
+run("ip -o addr show %s" % iface)
+log("==================== end wifisetup run ====================")
