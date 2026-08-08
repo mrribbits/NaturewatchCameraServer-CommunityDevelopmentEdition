@@ -83,8 +83,12 @@ except Exception:
 unique_ssid = "MyNaturewatch-" + suffix
 log("SSID: " + unique_ssid)
 
-# Build the hotspot on the detected interface
-run("iw reg set GB")
+# Build the hotspot on the detected interface.
+# Region US + a fixed 2.4GHz channel so the hotspot is visible and joinable on
+# all US devices. The original GB region could park it on channel 12/13, which
+# US phones won't display and Macs often can't associate with (shows up as a
+# misleading "incorrect password").
+run("iw reg set US")
 run("nmcli r wifi on")
 run("nmcli con delete id Hotspot")
 run("nmcli con delete id hotspot")
@@ -94,6 +98,8 @@ rc = run(
 )
 log("=> nmcli hotspot create exit code: %d" % rc)
 run("nmcli connection modify Hotspot connection.autoconnect yes")
+# Lock to 2.4GHz band + channel 6 (legal everywhere, visible to every device)
+run("nmcli connection modify Hotspot 802-11-wireless.band bg 802-11-wireless.channel 6")
 run("systemctl restart NetworkManager")
 time.sleep(5)
 run("nmcli con up Hotspot")
