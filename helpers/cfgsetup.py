@@ -100,6 +100,13 @@ log("=> nmcli hotspot create exit code: %d" % rc)
 run("nmcli connection modify Hotspot connection.autoconnect yes")
 # Lock to 2.4GHz band + channel 6 (legal everywhere, visible to every device)
 run("nmcli connection modify Hotspot 802-11-wireless.band bg 802-11-wireless.channel 6")
+# Force plain WPA2 (RSN / CCMP-AES) only. NetworkManager's default hotspot can
+# advertise legacy WPA/TKIP, which recent Apple devices refuse to show or join
+# (network is invisible on iPhone, "wrong password" on Mac). WPA2-AES works
+# on every modern client.
+run("nmcli connection modify Hotspot "
+    "wifi-sec.key-mgmt wpa-psk wifi-sec.proto rsn "
+    "wifi-sec.pairwise ccmp wifi-sec.group ccmp")
 run("systemctl restart NetworkManager")
 time.sleep(5)
 run("nmcli con up Hotspot")
@@ -107,4 +114,6 @@ run("nmcli con up Hotspot")
 # Final state, for the log
 run("nmcli -t device")
 run("ip -o addr show %s" % iface)
+run("nmcli -s -f 802-11-wireless-security connection show Hotspot")
+run("iw dev %s info" % iface)
 log("==================== end wifisetup run ====================")
