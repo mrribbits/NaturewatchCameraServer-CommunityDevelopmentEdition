@@ -100,13 +100,15 @@ log("=> nmcli hotspot create exit code: %d" % rc)
 run("nmcli connection modify Hotspot connection.autoconnect yes")
 # Lock to 2.4GHz band + channel 6 (legal everywhere, visible to every device)
 run("nmcli connection modify Hotspot 802-11-wireless.band bg 802-11-wireless.channel 6")
-# Force plain WPA2 (RSN / CCMP-AES) only. NetworkManager's default hotspot can
-# advertise legacy WPA/TKIP, which recent Apple devices refuse to show or join
-# (network is invisible on iPhone, "wrong password" on Mac). WPA2-AES works
-# on every modern client.
+# Force plain WPA2 (RSN / CCMP-AES) only, and DISABLE management-frame
+# protection (pmf 1). NetworkManager 1.42 otherwise runs the hotspot in
+# WPA2/WPA3 "transition mode" (key_mgmt "WPA-PSK WPA-PSK-SHA256 SAE"), which the
+# rt2800usb (Ralink) driver can't do properly in AP mode -- so the network is
+# invisible on iPhone and fails the handshake on Mac ("wrong password"). Plain
+# WPA2-PSK with pmf disabled works on every modern client.
 run("nmcli connection modify Hotspot "
     "wifi-sec.key-mgmt wpa-psk wifi-sec.proto rsn "
-    "wifi-sec.pairwise ccmp wifi-sec.group ccmp")
+    "wifi-sec.pairwise ccmp wifi-sec.group ccmp wifi-sec.pmf 1")
 run("systemctl restart NetworkManager")
 time.sleep(5)
 run("nmcli con up Hotspot")
