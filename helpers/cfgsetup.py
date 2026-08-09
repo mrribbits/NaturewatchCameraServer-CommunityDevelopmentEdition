@@ -45,6 +45,12 @@ os.system("sudo nmcli con delete id Hotspot")
 os.system("sudo nmcli con add type wifi con-name hotspot")
 os.system("sudo nmcli device wifi hotspot ssid " + unique_ssid + " password badgersandfoxes ifname " + iface)
 os.system("sudo nmcli connection modify Hotspot connection.autoconnect yes")
+# Force plain WPA2-PSK (RSN/CCMP) and disable management-frame protection.
+# NetworkManager 1.42 otherwise runs the hotspot in WPA2/WPA3 "transition mode"
+# (key_mgmt "WPA-PSK WPA-PSK-SHA256 SAE"), which many USB WiFi drivers can't do
+# properly in AP mode -- the network then won't show on some phones and fails the
+# handshake on others. Plain WPA2 works on every modern client.
+os.system("sudo nmcli connection modify Hotspot wifi-sec.key-mgmt wpa-psk wifi-sec.proto rsn wifi-sec.pairwise ccmp wifi-sec.group ccmp wifi-sec.pmf 1")
 os.system("sudo systemctl restart NetworkManager")
 time.sleep(5)
 os.system("sudo nmcli con up Hotspot")
