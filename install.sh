@@ -39,6 +39,13 @@ echo -e "\n# Activity LED as heartbeat (double-blink while the Pi is running)\nd
 echo -e "# Set CPU speed to 600MHz - fixes unstable WiFi issue" >> $CONFIG_FILE
 echo -e "arm_freq=600" >> $CONFIG_FILE
 
+# The bundled CustomPiOS 'raspicam' module enables the LEGACY camera stack
+# (start_x=1, camera_auto_detect=0) meant for raspistill/MMAL. This image uses
+# picamera2/libcamera, which needs the modern path -- with start_x=1 set, the
+# Pi Camera Module is never detected. Switch to libcamera auto-detection.
+sed -i 's/^start_x=1/start_x=0/' /boot/firmware/config.txt
+sed -i 's/^camera_auto_detect=.*/camera_auto_detect=1/' /boot/firmware/config.txt
+
 # Copy to installation path
 mkdir -p $INSTALLATION_PATH/NaturewatchCameraServer >/dev/null 2>&1
 cp -r $DIR $INSTALLATION_PATH >/dev/null 2>&1
@@ -68,6 +75,13 @@ apt-get update
 # apt list python3-picamera2 git python3-pip python3-libcamera libcap-dev ffmpeg python3-flask python3-numpy python3-opencv python3-kms++ --installed
 apt-get install -y python3-picamera2 --no-install-recommends
 apt-get install -y git python3-pip python3-libcamera libcap-dev ffmpeg python3-flask python3-numpy python3-opencv python3-kms++
+
+# Bring the libcamera stack up to the build that matches the installed libpisp.
+# The base image ships an older libcamera0.3 built against a different libpisp,
+# so rpicam / picamera2 crash with an undefined-symbol error
+# (libpisp ... compute_optimal_stride). This upgrades ONLY the camera libraries
+# (no kernel), so it won't trigger the arm64 initramfs hang we avoided earlier.
+apt-get install -y --only-upgrade libcamera0.3 libcamera-ipa python3-libcamera python3-picamera2
 
 # Setup a venv
 python -m venv --system-site-packages ${INSTALLATION_PATH}/NaturewatchCameraServer/.venv
