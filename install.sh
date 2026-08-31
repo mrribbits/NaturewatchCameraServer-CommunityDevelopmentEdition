@@ -30,14 +30,20 @@ CONFIG_FILE="/boot/firmware/config.txt"
 # echo -e "\n" >> $CONFIG_FILE
 # echo -e "max_usb_current=1" >> $CONFIG_FILE # It's the default behaviour.
 echo -e "\n# Activity LED as heartbeat (double-blink while the Pi is running)\ndtparam=act_led_trigger=heartbeat" >> $CONFIG_FILE
-echo -e "# Set CPU speed to 600MHz - fixes unstable WiFi issue" >> $CONFIG_FILE
+echo -e "# Under-clock the CPU to 600MHz ONLY on Pi Zero / Zero W (fixes their WiFi" >> $CONFIG_FILE
+echo -e "# instability). Other models (Pi 3, Zero 2 W, ...) ignore this and run full speed." >> $CONFIG_FILE
+echo -e "[pi0]" >> $CONFIG_FILE
 echo -e "arm_freq=600" >> $CONFIG_FILE
+echo -e "[all]" >> $CONFIG_FILE
 
 # I'm not sure about the config path, so let also modify the legacy one.
 CONFIG_FILE="/boot/config.txt"
 echo -e "\n# Activity LED as heartbeat (double-blink while the Pi is running)\ndtparam=act_led_trigger=heartbeat" >> $CONFIG_FILE
-echo -e "# Set CPU speed to 600MHz - fixes unstable WiFi issue" >> $CONFIG_FILE
+echo -e "# Under-clock the CPU to 600MHz ONLY on Pi Zero / Zero W (fixes their WiFi" >> $CONFIG_FILE
+echo -e "# instability). Other models (Pi 3, Zero 2 W, ...) ignore this and run full speed." >> $CONFIG_FILE
+echo -e "[pi0]" >> $CONFIG_FILE
 echo -e "arm_freq=600" >> $CONFIG_FILE
+echo -e "[all]" >> $CONFIG_FILE
 
 # The bundled CustomPiOS 'raspicam' module enables the LEGACY camera stack
 # (start_x=1, camera_auto_detect=0) meant for raspistill/MMAL. This image uses
